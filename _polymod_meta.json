@@ -1,0 +1,13 @@
+{
+  "title": "FPS Display for Mobile",
+  "description": "That's all",
+  "contributors": [
+    {
+      "name": "Hyper_",
+      "role": "Programmer"
+    }
+  ],
+  "api_version": "0.7.0",
+  "mod_version": "1.0.0",
+  "license": "CC BY-NC-SA 4.0"
+}

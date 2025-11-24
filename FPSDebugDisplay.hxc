@@ -1,0 +1,72 @@
+// package;
+import funkin.util.Constants;
+import funkin.Preferences;
+// import funkin.modding.events.ScriptEvent;
+// import funkin.modding.events.ScriptEvent.StateChangeScriptEvent;
+import funkin.modding.module.Module;
+import funkin.ui.options.OptionsState;
+import funkin.ui.title.TitleState;
+import funkin.save.Save;
+import flixel.FlxG;
+
+class FPSDebugDisplay extends Module
+{
+  public static final OFF:Int = 0;
+  public static final SIMPLE:Int = 1;
+  public static final ADVANCED:Int = 2;
+
+  function new()
+  {
+    super('FPSDebugDisplay');
+  }
+
+  public static var hasRefreshedDisplay:Bool = false;
+
+  public var modPreference(get, set):String;
+
+  function get_modPreference():String
+  {
+    return Save.instance.modOptions["FPSDisplayMobile"] ?? OFF;
+  }
+
+  function set_modPreference(value:String):String
+  {
+    Save.instance.modOptions["FPSDisplayMobile"] = value;
+    Save.instance.flush();
+    return value;
+  }
+
+  public override function onStateChangeEnd(event:StateChangeScriptEvent)
+  {
+    if (!Constants.DEBUG_BUILD && !FlxG.onMobile) return;
+
+    if ((event.targetState is TitleState) && !hasRefreshedDisplay)
+    {
+      hasRefreshedDisplay = true;
+      Preferences.setDebugDisplayMode(get_modPreference());
+    }
+
+    if (event.targetState is OptionsState)
+    {
+      var state:PreferencesMenu = event.targetState.optionsCodex.pages.get('preferences');
+
+      // This get set code is so jank in 0.7.5 because the property deletes the variable
+      // pls change when 0.7.6 releases.
+      state.createPrefItemEnum('Debug Display', 'When enabled, FPS and other debug stats are displayed.',
+        ["Advanced" => ADVANCED, "Simple" => SIMPLE, "Off" => OFF], (key, value) -> {
+          // getting debugDisplay always results in Off but we set it so that it also updates the display
+          Preferences.debugDisplay = value;
+          set_modPreference(value);
+        }, switch (get_modPreference())
+        {
+          case 0: 'Off';
+          case 1: 'Simple';
+          case 2: 'Advanced';
+        });
+
+      state.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void {
+        Preferences.debugDisplayBGOpacity = value;
+      }, Preferences.debugDisplayBGOpacity);
+    }
+  }
+}
