@@ -1,8 +1,5 @@
-// package;
 import funkin.util.Constants;
 import funkin.Preferences;
-// import funkin.modding.events.ScriptEvent;
-// import funkin.modding.events.ScriptEvent.StateChangeScriptEvent;
 import funkin.modding.module.Module;
 import funkin.ui.options.OptionsState;
 import funkin.ui.title.TitleState;
@@ -24,14 +21,15 @@ class FPSDebugDisplay extends Module
 
   public var modPreference(get, set):String;
 
-  function get_modPreference():String
+  function get_modPreference():Int
   {
-    return Save.instance.modOptions["FPSDisplayMobile"] ?? OFF;
+    // Getting it from preferences always returns OFF, so we bypass that by getting it directly from the save data.
+    return Save.instance.options?.debugDisplay ?? OFF;
   }
 
-  function set_modPreference(value:String):String
+  function set_modPreference(value:Int):String
   {
-    Save.instance.modOptions["FPSDisplayMobile"] = value;
+    Save.instance.options.debugDisplay = value;
     Save.instance.flush();
     return value;
   }
