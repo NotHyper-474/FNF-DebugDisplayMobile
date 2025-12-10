@@ -25,23 +25,33 @@ class FPSDebugDisplay extends Module
   function get_modPreference():String
   {
     // The value is now stored as a string since 0.7.6
-    var debugMode:Null<Any> = Save.instance.modOptions["FPSDisplayMobile"];
-    if (debugMode != null && !(debugMode is String))
+    var debugMode:Null<Any>;
+    if (Save.instance.modOptions.exists("FPSDisplayMobile"))
     {
-      debugMode = modPreference = switch (debugMode)
+      debugMode = Save.instance.modOptions["FPSDisplayMobile"];
+      if (!(debugMode is String))
       {
-        case 0: OFF;
-        case 1: SIMPLE;
-        case 2: ADVANCED;
-      };
+        debugMode = modPreference = switch (debugMode)
+        {
+          case 0: OFF;
+          case 1: SIMPLE;
+          case 2: ADVANCED;
+          default: OFF;
+        };
+      }
+      // get this shit away from here
+      Save.instance.modOptions.remove("FPSDisplayMobile");
+      
+      return debugMode;
     }
 
-    return debugMode ?? OFF;
+    // Getting it from preferences always returns OFF, so we bypass that by getting it directly from the save data.
+    return Save.instance.options?.debugDisplay ?? OFF;
   }
 
   function set_modPreference(value:String):String
   {
-    Save.instance.modOptions["FPSDisplayMobile"] = value;
+    Save.instance.options.debugDisplay = value;
     Save.instance.flush();
     return value;
   }
