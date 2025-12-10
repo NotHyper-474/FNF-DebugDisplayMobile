@@ -24,11 +24,10 @@ class FPSDebugDisplay extends Module
 
   function get_modPreference():String
   {
-    // The value is now stored as a string since 0.7.6
-    var debugMode:Null<Any>;
     if (Save.instance.modOptions.exists("FPSDisplayMobile"))
     {
-      debugMode = Save.instance.modOptions["FPSDisplayMobile"];
+      var debugMode:Null<Any> = Save.instance.modOptions["FPSDisplayMobile"];
+      // The value is now stored as a string since 0.7.6
       if (!(debugMode is String))
       {
         debugMode = modPreference = switch (debugMode)
