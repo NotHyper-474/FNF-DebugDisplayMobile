@@ -5,12 +5,13 @@ import funkin.ui.options.OptionsState;
 import funkin.ui.title.TitleState;
 import funkin.save.Save;
 import flixel.FlxG;
+import String; // lol?
 
 class FPSDebugDisplay extends Module
 {
-  public static final OFF:Int = 0;
-  public static final SIMPLE:Int = 1;
-  public static final ADVANCED:Int = 2;
+  public static final OFF:String = 'Off';
+  public static final SIMPLE:String = 'Simple';
+  public static final ADVANCED:String = 'Advanced';
 
   function new()
   {
@@ -21,16 +22,38 @@ class FPSDebugDisplay extends Module
 
   public var modPreference(get, set):String;
 
-  function get_modPreference():Int
+  function get_modPreference():String
   {
+    if (Save.instance.modOptions.exists("FPSDisplayMobile"))
+    {
+      var debugMode:Null<Any> = Save.instance.modOptions["FPSDisplayMobile"];
+      // Migration shit. The value is now stored as a string since 0.8.0
+      if (!(debugMode is String))
+      {
+        debugMode = modPreference = switch (debugMode)
+        {
+          case 0: OFF;
+          case 1: SIMPLE;
+          case 2: ADVANCED;
+          default: OFF;
+        };
+      }
+      // get this shit away from here
+      Save.instance.modOptions.remove("FPSDisplayMobile");
+      
+      return debugMode;
+    }
+
     // Getting it from preferences always returns OFF, so we bypass that by getting it directly from the save data.
     return Save.instance.options?.debugDisplay ?? OFF;
   }
 
-  function set_modPreference(value:Int):String
+  function set_modPreference(value:String):String
   {
     Save.instance.options.debugDisplay = value;
     Save.instance.flush();
+    // Just setting the preference isn't enough anymore, fuck my stupid chud life
+    Preferences.setDebugDisplayMode(value);
     return value;
   }
 
@@ -38,31 +61,23 @@ class FPSDebugDisplay extends Module
   {
     if (!Constants.DEBUG_BUILD && !FlxG.onMobile) return;
 
+    // TODO: Is this the best way to do this? Putting it in onCreate doesn't seem to work.
     if ((event.targetState is TitleState) && !hasRefreshedDisplay)
     {
       hasRefreshedDisplay = true;
-      Preferences.setDebugDisplayMode(get_modPreference());
+      Preferences.setDebugDisplayMode(modPreference);
     }
 
     if (event.targetState is OptionsState)
     {
-      var state:PreferencesMenu = event.targetState.optionsCodex.pages.get('preferences');
-
-      // This get set code is so jank in 0.7.5 because the property deletes the variable
-      // pls change when 0.7.6 releases.
-      state.createPrefItemEnum('Debug Display', 'When enabled, FPS and other debug stats are displayed.',
+      var prefsMenu:PreferencesMenu = event.targetState.optionsCodex.pages.get('preferences');
+      prefsMenu.createPrefItemEnum('Debug Display', 'When enabled, FPS and other debug stats are displayed.',
         ["Advanced" => ADVANCED, "Simple" => SIMPLE, "Off" => OFF], (key, value) -> {
           // getting debugDisplay always results in Off but we set it so that it also updates the display
-          Preferences.debugDisplay = value;
-          set_modPreference(value);
-        }, switch (get_modPreference())
-        {
-          case 0: 'Off';
-          case 1: 'Simple';
-          case 2: 'Advanced';
-        });
+          Preferences.debugDisplay = modPreference = value;
+        }, modPreference);
 
-      state.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void {
+      prefsMenu.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void {
         Preferences.debugDisplayBGOpacity = value;
       }, Preferences.debugDisplayBGOpacity);
     }

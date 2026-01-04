@@ -7,7 +7,7 @@
       "role": "Programmer"
     }
   ],
-  "api_version": "0.7.0",
-  "mod_version": "1.0.0",
+  "api_version": "0.8.0",
+  "mod_version": "1.0.1",
   "license": "CC BY-NC-SA 4.0"
 }
