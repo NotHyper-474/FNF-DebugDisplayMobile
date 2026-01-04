@@ -52,6 +52,8 @@ class FPSDebugDisplay extends Module
   {
     Save.instance.options.debugDisplay = value;
     Save.instance.flush();
+    // Just setting the preference isn't enough anymore, fuck my stupid chud life
+    Preferences.setDebugDisplayMode(value);
     return value;
   }
 
