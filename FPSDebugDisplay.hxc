@@ -5,6 +5,10 @@ import funkin.ui.options.OptionsState;
 import funkin.ui.title.TitleState;
 import funkin.save.Save;
 import flixel.FlxG;
+import flixel.math.FlxMath;
+import funkin.ui.FullScreenScaleMode;
+import funkin.modding.ModStore;
+import Main;
 import String; // lol?
 
 class FPSDebugDisplay extends Module
@@ -15,10 +19,26 @@ class FPSDebugDisplay extends Module
 
   function new()
   {
-    super('FPSDebugDisplay');
+    super('FPSDebugDisplay', -0x7FFFFFFF);
+    
+    // KoloInDaKrue
+    // Force debug display to appear
+    FlxG.signals.postGameStart.add(() -> {
+        modPreference = modPreference;
+        repositionCounters(false);
+    });
+    
+    // We hijack the built-in positioning function with our own
+    if (!ModStore.register("FPS_Hijacked", false))
+    {
+        // hopefully no other mods do the same...
+        FlxG.signals.preUpdate.removeAll();
+        
+        FlxG.signals.preUpdate.add(() -> repositionCounters(true));
+        
+        repositionCounters(false);
+    }
   }
-
-  public static var hasRefreshedDisplay:Bool = false;
 
   public var modPreference(get, set):String;
 
@@ -52,21 +72,28 @@ class FPSDebugDisplay extends Module
   {
     Save.instance.options.debugDisplay = value;
     Save.instance.flush();
-    // Just setting the preference isn't enough anymore, fuck my stupid chud life
     Preferences.setDebugDisplayMode(value);
     return value;
+  }
+  
+  var ignoreNotch(get, set):Bool;
+  
+  function get_ignoreNotch():Bool
+  {
+    return Save.instance.modOptions["FPS_ignoreNotchMinecraft"] ?? false;
+  }
+  
+  function set_ignoreNotch(v):Bool
+  {
+    Save.instance.modOptions["FPS_ignoreNotchMinecraft"] = v;
+    Save.instance.flush();
+    return v;
   }
 
   public override function onStateChangeEnd(event:StateChangeScriptEvent)
   {
     if (!Constants.DEBUG_BUILD && !FlxG.onMobile) return;
-
-    // TODO: Is this the best way to do this? Putting it in onCreate doesn't seem to work.
-    if ((event.targetState is TitleState) && !hasRefreshedDisplay)
-    {
-      hasRefreshedDisplay = true;
-      Preferences.setDebugDisplayMode(modPreference);
-    }
+    
 
     if (event.targetState is OptionsState)
     {
@@ -80,6 +107,45 @@ class FPSDebugDisplay extends Module
       prefsMenu.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void {
         Preferences.debugDisplayBGOpacity = value;
       }, Preferences.debugDisplayBGOpacity);
+      
+      prefsMenu.createPrefItemCheckbox("Ignore Notch Size", "Whether the display's positioning ignores the screen notch size. Enable this if the position is too far from the corner.",
+        (value) -> {
+            ignoreNotch = value;
+        }, ignoreNotch);
+    }
+  }
+  
+  function repositionCounters(lerp:Bool):Void
+  {
+    // Calling this so it gets scaled based on the resolution of the game and device's resolution.
+    var scale:Float = Math.min(FlxG.stage.stageWidth / FlxG.width, FlxG.stage.stageHeight / FlxG.height);
+
+    if (FlxG.android != null) // aint you a clever betch
+        scale = Math.max(scale, 1);
+    else
+        scale = Math.min(scale, 1);
+        
+    final notchSizeX = ignoreNotch ? 0 : FullScreenScaleMode.notchSize.x;
+    final thypos:Float = Math.max(notchSizeX, 50);
+
+    var debugDisplay = Main.debugDisplay;
+    if (debugDisplay != null)
+    {
+      debugDisplay.scaleX = debugDisplay.scaleY = scale;
+
+      if (FlxG.game != null)
+      {
+        if (lerp)
+        {
+          debugDisplay.x = FlxMath.lerp(debugDisplay.x, FlxG.game.x + thypos, FlxG.elapsed * 3);
+        }
+        else
+        {
+          debugDisplay.x = FlxG.game.x + notchSizeX + 10;
+        }
+
+        debugDisplay.y = FlxG.game.y + (3 * scale);
+      }
     }
   }
 }
