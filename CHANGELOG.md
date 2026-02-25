@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org).
 
 ### Added
 
-- Added an experimental 'Ignore Screen Notch` preference, which iOS users can enable to hopefully fix the display going to the middle of the screen.
+- Added an experimental 'Ignore Screen Notch' preference, which iOS users can enable to hopefully fix the display going to the middle of the screen.
   - I do not have an iOS device to test this though, so tell me if it works.
 - In addition to that, 'Debug Display X Offset' has been added in case the preference above doesn't work very well.
 - This CHANGELOG file to give users another way of checking out changes.
