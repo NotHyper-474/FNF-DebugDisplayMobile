@@ -168,7 +168,7 @@ class FPSDebugDisplay extends Module
     }
   }
 
-  function repositionCounters(lerp:Bool):Void
+  static function repositionCounters(lerp:Bool):Void
   {
     var debugDisplay = Main.debugDisplay;
     if (debugDisplay == null) return;
@@ -194,7 +194,7 @@ class FPSDebugDisplay extends Module
       }
       else
       {
-        debugDisplay.x = FlxG.game.x + notchSizeX + 10;
+        debugDisplay.x = FlxG.game.x + thypos;
       }
 
       debugDisplay.y = FlxG.game.y + (3 * scale);
