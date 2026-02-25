@@ -1,3 +1,5 @@
+package funkin.debugDisplay;
+
 import funkin.util.Constants;
 import funkin.Preferences;
 import funkin.modding.module.Module;
@@ -9,7 +11,12 @@ import flixel.math.FlxMath;
 import funkin.ui.FullScreenScaleMode;
 import funkin.modding.ModStore;
 import Main;
-import String; // lol?
+
+typedef SaveData =
+{
+  var ignoreNotch:Bool;
+  var offsetX:Int;
+}
 
 class FPSDebugDisplay extends Module
 {
@@ -17,27 +24,11 @@ class FPSDebugDisplay extends Module
   public static final SIMPLE:String = 'Simple';
   public static final ADVANCED:String = 'Advanced';
 
+  static final SAVE_ID:String = 'Funkin_DebugDisplay';
+
   function new()
   {
     super('FPSDebugDisplay', -0x7FFFFFFF);
-    
-    // KoloInDaKrue
-    // Force debug display to appear
-    FlxG.signals.postGameStart.add(() -> {
-        modPreference = modPreference;
-        repositionCounters(false);
-    });
-    
-    // We hijack the built-in positioning function with our own
-    if (!ModStore.register("FPS_Hijacked", false))
-    {
-        // hopefully no other mods do the same...
-        FlxG.signals.preUpdate.removeAll();
-        
-        FlxG.signals.preUpdate.add(() -> repositionCounters(true));
-        
-        repositionCounters(false);
-    }
   }
 
   public var modPreference(get, set):String;
@@ -48,7 +39,7 @@ class FPSDebugDisplay extends Module
     {
       var debugMode:Null<Any> = Save.instance.modOptions["FPSDisplayMobile"];
       // Migration shit. The value is now stored as a string since 0.8.0
-      if (!(debugMode is String))
+      if (debugMode != null && !(debugMode is String))
       {
         debugMode = modPreference = switch (debugMode)
         {
@@ -60,7 +51,7 @@ class FPSDebugDisplay extends Module
       }
       // get this shit away from here
       Save.instance.modOptions.remove("FPSDisplayMobile");
-      
+
       return debugMode;
     }
 
@@ -75,77 +66,138 @@ class FPSDebugDisplay extends Module
     Preferences.setDebugDisplayMode(value);
     return value;
   }
-  
-  var ignoreNotch(get, set):Bool;
-  
-  function get_ignoreNotch():Bool
+
+  static var saveData(get, never):SaveData;
+
+  static function get_saveData():SaveData
   {
-    return Save.instance.modOptions["FPS_ignoreNotchMinecraft"] ?? false;
+    if (!Save.instance.modOptions.exists(SAVE_ID))
+    {
+      Save.instance.modOptions[SAVE_ID] = {
+        ignoreNotch: false,
+        offsetX: 0
+      };
+    }
+
+    return Save.instance.modOptions[SAVE_ID];
   }
-  
-  function set_ignoreNotch(v):Bool
+
+  // TODO: Move these somewhere else
+  static var ignoreNotch(get, set):Bool;
+
+  static function get_ignoreNotch():Bool
   {
-    Save.instance.modOptions["FPS_ignoreNotchMinecraft"] = v;
+    return saveData.ignoreNotch ?? false;
+  }
+
+  static function set_ignoreNotch(v:Bool):Bool
+  {
+    saveData.ignoreNotch = v;
     Save.instance.flush();
     return v;
+  }
+
+  static var offsetX(get, set):Int;
+
+  static function get_offsetX():Int
+  {
+    return saveData.offsetX ?? 0;
+  }
+
+  static function set_offsetX(v:Int):Int
+  {
+    saveData.offsetX = v;
+    Save.instance.flush();
+    return v;
+  }
+
+  override function onCreate():Void
+  {
+    super.onCreate();
+
+    if (!(Constants.DEBUG_BUILD || FlxG.onMobile)) return;
+
+    if (ModStore.get("FPS_Startup") == null)
+    {
+      // KoloInDaKrue...
+      // Force debug display to appear, if enabled
+      FlxG.signals.postGameStart.add(() ->
+      {
+        modPreference = modPreference;
+        repositionCounters(false);
+      });
+      ModStore.register("FPS_Startup", true);
+    }
+
+    // We hijack the built-in positioning function with our own
+    // hopefully no other mods attempt to do the same...
+    FlxG.signals.preUpdate.removeAll();
+    FlxG.signals.preUpdate.add(() -> repositionCounters(true));
   }
 
   public override function onStateChangeEnd(event:StateChangeScriptEvent)
   {
     if (!Constants.DEBUG_BUILD && !FlxG.onMobile) return;
-    
 
     if (event.targetState is OptionsState)
     {
       var prefsMenu:PreferencesMenu = event.targetState.optionsCodex.pages.get('preferences');
       prefsMenu.createPrefItemEnum('Debug Display', 'When enabled, FPS and other debug stats are displayed.',
-        ["Advanced" => ADVANCED, "Simple" => SIMPLE, "Off" => OFF], (key, value) -> {
+        ["Advanced" => ADVANCED, "Simple" => SIMPLE, "Off" => OFF], (key, value) ->
+        {
           // getting debugDisplay always results in Off but we set it so that it also updates the display
           Preferences.debugDisplay = modPreference = value;
         }, modPreference);
 
-      prefsMenu.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void {
+      prefsMenu.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void
+      {
         Preferences.debugDisplayBGOpacity = value;
       }, Preferences.debugDisplayBGOpacity);
-      
-      prefsMenu.createPrefItemCheckbox("Ignore Notch Size", "Whether the display's positioning ignores the screen notch size. Enable this if the position is too far from the corner.",
-        (value) -> {
-            ignoreNotch = value;
+
+      // Note for the future: I really gotta fix static properties on Polymod brah,
+      // what the hell do you mean it's being treated like an instance variable
+      prefsMenu.createPrefItemCheckbox('Ignore Screen Notch',
+        "Whether the display's positioning ignores the screen notch size. Enable this if the position is too far from the corner.", (value) ->
+        {
+          FPSDebugDisplay.ignoreNotch = value;
         }, ignoreNotch);
+
+      prefsMenu.createPrefItemNumber('Debug Display X Offset',
+        "A custom offset on the horizontal axis. Useful if 'Ignore Screen Notch' gives a position that's too far to the left.",
+        v -> FPSDebugDisplay.offsetX = v, null, offsetX, -1000., 1000., 10, 0);
     }
   }
-  
+
   function repositionCounters(lerp:Bool):Void
   {
+    var debugDisplay = Main.debugDisplay;
+    if (debugDisplay == null) return;
+
     // Calling this so it gets scaled based on the resolution of the game and device's resolution.
     var scale:Float = Math.min(FlxG.stage.stageWidth / FlxG.width, FlxG.stage.stageHeight / FlxG.height);
 
     if (FlxG.android != null) // aint you a clever betch
-        scale = Math.max(scale, 1);
+      scale = Math.max(scale, 1);
     else
-        scale = Math.min(scale, 1);
-        
+      scale = Math.min(scale, 1);
+
     final notchSizeX = ignoreNotch ? 0 : FullScreenScaleMode.notchSize.x;
-    final thypos:Float = Math.max(notchSizeX, 50);
+    final thypos:Float = offsetX + Math.max(notchSizeX, 50);
 
-    var debugDisplay = Main.debugDisplay;
-    if (debugDisplay != null)
+    debugDisplay.scaleX = debugDisplay.scaleY = scale;
+
+    if (FlxG.game != null)
     {
-      debugDisplay.scaleX = debugDisplay.scaleY = scale;
-
-      if (FlxG.game != null)
+      if (lerp)
       {
-        if (lerp)
-        {
-          debugDisplay.x = FlxMath.lerp(debugDisplay.x, FlxG.game.x + thypos, FlxG.elapsed * 3);
-        }
-        else
-        {
-          debugDisplay.x = FlxG.game.x + notchSizeX + 10;
-        }
-
-        debugDisplay.y = FlxG.game.y + (3 * scale);
+        debugDisplay.x = FlxMath.lerp(debugDisplay.x, FlxG.game.x + thypos, FlxG.elapsed * 3);
       }
+      else
+      {
+        debugDisplay.x = FlxG.game.x + notchSizeX + 10;
+      }
+
+      debugDisplay.y = FlxG.game.y + (3 * scale);
     }
   }
 }
