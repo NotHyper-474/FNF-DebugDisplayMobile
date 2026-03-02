@@ -1,15 +1,15 @@
 package funkin.debugDisplay;
 
-import funkin.util.Constants;
-import funkin.Preferences;
 import funkin.modding.module.Module;
+import funkin.modding.ModStore;
+import funkin.save.Save;
 import funkin.ui.options.OptionsState;
 import funkin.ui.title.TitleState;
-import funkin.save.Save;
-import flixel.FlxG;
-import flixel.math.FlxMath;
 import funkin.ui.FullScreenScaleMode;
-import funkin.modding.ModStore;
+import funkin.util.Constants;
+import funkin.Preferences;
+import flixel.math.FlxMath;
+import flixel.FlxG;
 import Main;
 
 typedef SaveData =
@@ -31,9 +31,9 @@ class FPSDebugDisplay extends Module
     super('FPSDebugDisplay', -0x7FFFFFFF);
   }
 
-  public var modPreference(get, set):String;
+  public static var debugDisplay(get, set):String;
 
-  function get_modPreference():String
+  static function get_debugDisplay():String
   {
     if (Save.instance.modOptions.exists("FPSDisplayMobile"))
     {
@@ -41,7 +41,7 @@ class FPSDebugDisplay extends Module
       // Migration shit. The value is now stored as a string since 0.8.0
       if (debugMode != null && !(debugMode is String))
       {
-        debugMode = modPreference = switch (debugMode)
+        debugMode = FPSDebugDisplay.debugDisplay = switch (debugMode)
         {
           case 0: OFF;
           case 1: SIMPLE;
@@ -59,11 +59,11 @@ class FPSDebugDisplay extends Module
     return Save.instance.options?.debugDisplay ?? OFF;
   }
 
-  function set_modPreference(value:String):String
+  static function set_debugDisplay(value:String):String
   {
+    Preferences.setDebugDisplayMode(value);
     Save.instance.options.debugDisplay = value;
     Save.instance.flush();
-    Preferences.setDebugDisplayMode(value);
     return value;
   }
 
@@ -123,7 +123,7 @@ class FPSDebugDisplay extends Module
       // Force debug display to appear, if enabled
       FlxG.signals.postGameStart.add(() ->
       {
-        modPreference = modPreference;
+        FPSDebugDisplay.debugDisplay = FPSDebugDisplay.debugDisplay;
         repositionCounters(false);
       });
       ModStore.register("FPS_Startup", true);
@@ -145,9 +145,9 @@ class FPSDebugDisplay extends Module
       prefsMenu.createPrefItemEnum('Debug Display', 'When enabled, FPS and other debug stats are displayed.',
         ["Advanced" => ADVANCED, "Simple" => SIMPLE, "Off" => OFF], (key, value) ->
         {
-          // getting debugDisplay always results in Off but we set it so that it also updates the display
-          Preferences.debugDisplay = modPreference = value;
-        }, modPreference);
+          // TODO: Should we still change in Preferences?
+          Preferences.debugDisplay = FPSDebugDisplay.debugDisplay = value;
+        }, FPSDebugDisplay.debugDisplay);
 
       prefsMenu.createPrefItemPercentage('Debug Display BG', "Adjust the debug display's background opacity.", function(value:Int):Void
       {
