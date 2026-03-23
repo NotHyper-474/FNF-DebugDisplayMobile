@@ -111,11 +111,10 @@ class FPSDebugDisplay extends Module
     return v;
   }
 
+  #if (mobile || debug)
   override function onCreate():Void
   {
     super.onCreate();
-
-    if (!(Constants.DEBUG_BUILD || FlxG.onMobile)) return;
 
     if (ModStore.get("FPS_Startup") == null)
     {
@@ -134,11 +133,11 @@ class FPSDebugDisplay extends Module
     FlxG.signals.preUpdate.removeAll();
     FlxG.signals.preUpdate.add(() -> repositionCounters(true));
   }
+  #end
 
+  #if (mobile || debug)
   public override function onStateChangeEnd(event:StateChangeScriptEvent)
   {
-    if (!Constants.DEBUG_BUILD && !FlxG.onMobile) return;
-
     if (event.targetState is OptionsState)
     {
       var prefsMenu:PreferencesMenu = event.targetState.optionsCodex.pages.get('preferences');
@@ -156,6 +155,8 @@ class FPSDebugDisplay extends Module
 
       // Note for the future: I really gotta fix static properties on Polymod brah,
       // what the hell do you mean it's being treated like an instance variable
+
+      // TODO: According to Jigsaw, SDL3 fixes the bug this tried to mitigate, but should we keep it anyway?
       prefsMenu.createPrefItemCheckbox('Ignore Screen Notch',
         "Whether the display's positioning ignores the screen notch size. Enable this if the position is too far from the corner.", (value) ->
         {
@@ -164,9 +165,10 @@ class FPSDebugDisplay extends Module
 
       prefsMenu.createPrefItemNumber('Debug Display X Offset',
         "A custom offset on the horizontal axis. Useful if 'Ignore Screen Notch' gives a position that's too far to the left.",
-        v -> FPSDebugDisplay.offsetX = v, null, offsetX, -1000., 1000., 10, 0);
+        v -> FPSDebugDisplay.offsetX = v, null, offsetX, -1000., 1000., 10);
     }
   }
+  #end
 
   static function repositionCounters(lerp:Bool):Void
   {
@@ -174,30 +176,28 @@ class FPSDebugDisplay extends Module
     if (debugDisplay == null) return;
 
     // Calling this so it gets scaled based on the resolution of the game and device's resolution.
-    var scale:Float = Math.min(FlxG.stage.stageWidth / FlxG.width, FlxG.stage.stageHeight / FlxG.height);
+    var scale:Float = Math.max(Math.min(FlxG.stage.stageWidth / FlxG.width, FlxG.stage.stageHeight / FlxG.height), 1);
 
-    if (FlxG.android != null) // aint you a clever betch
-      scale = Math.max(scale, 1);
-    else
-      scale = Math.min(scale, 1);
-
-    final notchSizeX = ignoreNotch ? 0 : FullScreenScaleMode.notchSize.x;
-    final thypos:Float = offsetX + Math.max(notchSizeX, 50);
-
-    debugDisplay.scaleX = debugDisplay.scaleY = scale;
-
-    if (FlxG.game != null)
+    if (debugDisplay != null)
     {
-      if (lerp)
-      {
-        debugDisplay.x = FlxMath.lerp(debugDisplay.x, FlxG.game.x + thypos, FlxG.elapsed * 3);
-      }
-      else
-      {
-        debugDisplay.x = FlxG.game.x + thypos;
-      }
+      debugDisplay.scaleX = debugDisplay.scaleY = scale;
 
-      debugDisplay.y = FlxG.game.y + (3 * scale);
+      if (FlxG.game != null)
+      {
+        final notchSizeX = ignoreNotch ? 0 : FullScreenScaleMode.notchSize.x;
+        final thypos:Float = offsetX + Math.max(notchSizeX, 10);
+
+        if (lerp)
+        {
+          debugDisplay.x = FlxMath.lerp(debugDisplay.x, FlxG.game.x + thypos, FlxG.elapsed * 3);
+        }
+        else
+        {
+          debugDisplay.x = FlxG.game.x + thypos;
+        }
+
+        debugDisplay.y = FlxG.game.y + (3 * scale);
+      }
     }
   }
 }
